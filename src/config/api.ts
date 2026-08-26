@@ -1,2 +1,2 @@
-export const BASE_URL = 'http://10.248.205.106:5001';
+export const BASE_URL = 'https://dms-backend-i297.onrender.com';
 export const API_URL = `${BASE_URL}/api`;
