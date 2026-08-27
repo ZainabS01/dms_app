@@ -319,7 +319,12 @@ exports.register = async (req, res) => {
 
     let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+      if (user.isVerified === false) {
+        // If the account exists but was never verified, delete it to allow re-registration
+        await User.deleteOne({ _id: user._id });
+      } else {
+        return res.status(400).json({ message: 'User with this email already exists' });
+      }
     }
 
     if (role === 'student' && roll_no) {
@@ -548,7 +553,7 @@ exports.forgotPassword = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Please provide your email' });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'No account found with that email' });
+    if (!user) return res.status(404).json({ message: 'This email does not exist' });
 
     const otp = generateOTP();
     user.otp = otp;
