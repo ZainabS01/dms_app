@@ -8,11 +8,63 @@ const Notification = require('../models/Notification');
 // --- Nodemailer Transporter Setup ---
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  connectionTimeout: 3000, // 3 seconds timeout
+  socketTimeout: 3000,
+  greetingTimeout: 3000,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
+
+// Unified Email Helper: Uses SendGrid REST API if available (port 443/HTTPS), falls back to Gmail SMTP
+const sendDmsEmail = async (recipientEmail, subject, htmlContent) => {
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          personalizations: [
+            {
+              to: [{ email: recipientEmail }]
+            }
+          ],
+          from: {
+            email: process.env.EMAIL_USER || 'zainabminhas294@gmail.com',
+            name: 'Department Management System'
+          },
+          subject: subject,
+          content: [
+            {
+              type: 'text/html',
+              value: htmlContent
+            }
+          ]
+        })
+      });
+      if (response.ok) {
+        console.log(`✅ Email sent successfully via SendGrid API to ${recipientEmail}`);
+        return;
+      }
+      const errText = await response.text();
+      console.warn(`SendGrid API error status ${response.status}: ${errText}. Falling back to SMTP...`);
+    } catch (apiErr) {
+      console.error('SendGrid API send failed, falling back to SMTP:', apiErr);
+    }
+  }
+
+  // Fallback to Gmail SMTP
+  return transporter.sendMail({
+    from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+    to: recipientEmail,
+    subject: subject,
+    html: htmlContent
+  });
+};
 
 // Utility to generate 4-digit OTP
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -148,12 +200,7 @@ const sendApprovalEmail = async (recipientEmail, recipientName, applicant, appro
     </html>
   `;
 
-  await transporter.sendMail({
-    from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-    to: recipientEmail,
-    subject: `[Pending Approval] New ${roleText}: ${applicant.name}`,
-    html: htmlContent
-  });
+  await sendDmsEmail(recipientEmail, `[Pending Approval] New ${roleText}: ${applicant.name}`, htmlContent);
 };
 
 // Render function for approval responses in browser
@@ -371,25 +418,19 @@ exports.register = async (req, res) => {
 
     if (!adminCreated) {
       // Send OTP Email for self-registration
-      try {
-        transporter.sendMail({
-          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-          to: email,
-          subject: 'Verify your DMS Account',
-          html: `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-        }).catch(err => console.error('Failed to send verification OTP email:', err));
+        await sendDmsEmail(email, 'Verify your DMS Account', `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`);
       } catch (mailErr) {
-        console.error('Synchronous verification email error caught:', mailErr);
+        console.error('Verification email sending failed:', mailErr);
+        // Delete the created user so they can try again with a valid email
+        await User.deleteOne({ _id: newUser._id });
+        return res.status(400).json({ 
+          message: 'Failed to send verification email. Please check if your email address is valid.' 
+        });
       }
     } else {
       // Send Welcome Email for admin-created users
       try {
-        transporter.sendMail({
-          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-          to: email,
-          subject: 'Your DMS Account is Registered',
-          html: `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`,
-        }).catch(err => console.error('Welcome email sending failed:', err));
+        sendDmsEmail(email, 'Your DMS Account is Registered', `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`).catch(err => console.error('Welcome email sending failed:', err));
       } catch (mailErr) {
         console.error('Synchronous welcome email error caught:', mailErr);
       }
@@ -569,12 +610,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     try {
-      transporter.sendMail({
-        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Reset your DMS Password',
-        html: `<h3>Password Reset</h3><p>Your 4-digit OTP to reset your password is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-      }).catch(err => console.error('Failed to send reset password OTP email:', err));
+      sendDmsEmail(email, 'Reset your DMS Password', `<h3>Password Reset</h3><p>Your 4-digit OTP to reset your password is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`).catch(err => console.error('Failed to send reset password OTP email:', err));
     } catch (mailErr) {
       console.error('Synchronous reset password email error caught:', mailErr);
     }
@@ -871,16 +907,15 @@ exports.approveRequest = async (req, res) => {
         console.error('Failed to notify approved user in app:', err);
       }
 
-      transporter.sendMail({
-        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: 'DMS Account Approved',
-        html: `
+      try {
+        await sendDmsEmail(user.email, 'DMS Account Approved', `
           <h3>Congratulations, ${user.name}!</h3>
           <p>Your registration request has been approved.</p>
           <p>You can now open the DMS app and log in to access your dashboard.</p>
-        `,
-      }).catch(err => console.error('Failed to send approval confirmation email:', err));
+        `);
+      } catch (err) {
+        console.error('Failed to send approval confirmation email:', err);
+      }
 
       return res.status(200).send(renderResponsePage(true, `Successfully approved <strong>${user.name}</strong> (${user.role})! They can now log in.`, user));
     } else if (action === 'reject') {
@@ -890,16 +925,15 @@ exports.approveRequest = async (req, res) => {
 
       await User.deleteOne({ _id: user._id });
 
-      transporter.sendMail({
-        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-        to: userEmail,
-        subject: 'DMS Registration Request Rejected',
-        html: `
+      try {
+        await sendDmsEmail(userEmail, 'DMS Registration Request Rejected', `
           <h3>Hello, ${userName}.</h3>
           <p>Your registration request for the Department Management System was rejected.</p>
           <p>You can try registering again with correct details if needed.</p>
-        `,
-      }).catch(err => console.error('Failed to send rejection email:', err));
+        `);
+      } catch (err) {
+        console.error('Failed to send rejection email:', err);
+      }
 
       return res.status(200).send(renderResponsePage(true, `Successfully rejected and deleted registration request for <strong>${userName}</strong> (${userRole}).`, { name: userName, email: userEmail, role: userRole }, false, true));
     }
