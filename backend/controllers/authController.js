@@ -418,6 +418,7 @@ exports.register = async (req, res) => {
 
     if (!adminCreated) {
       // Send OTP Email for self-registration
+      try {
         await sendDmsEmail(email, 'Verify your DMS Account', `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`);
       } catch (mailErr) {
         console.error('Verification email sending failed:', mailErr);
