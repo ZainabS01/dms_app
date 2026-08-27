@@ -8,7 +8,7 @@ export function GlobalToast() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const slideAnim = useRef(new Animated.Value(-150)).current; // Start off-screen at the top
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const loadTheme = async () => {

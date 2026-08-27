@@ -907,7 +907,7 @@ export default function AdminHome() {
       )}
       {/* Custom Exit App Confirmation Modal */}
       <Modal visible={exitModalVisible} transparent animationType="fade" onRequestClose={() => setExitModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center', padding: 25 }]}>
           <View style={[styles.confirmModalContent, isDarkMode && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
             <Text style={[styles.confirmTitle, isDarkMode && { color: '#ffffff' }]}>Exit App</Text>
             <Text style={[styles.confirmMessage, isDarkMode && { color: '#cbd5e1' }]}>Are you sure you want to exit DMS?</Text>
@@ -1119,8 +1119,6 @@ const styles = StyleSheet.create({
   notiIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   notiTitle: { fontSize: 13, fontWeight: 'bold', color: '#1e293b' },
   notiText: { fontSize: 11, color: '#64748b', marginTop: 2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 25 },
-  modalContent: { backgroundColor: '#ffffff', borderRadius: 20, padding: 25 },
 
   // Custom Confirm Dialog Styles
   confirmModalContent: {

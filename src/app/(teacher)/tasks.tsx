@@ -697,6 +697,7 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, width: '100%' },
   modalCloseBtn: { padding: 4 },
   input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 12, fontSize: 15, marginBottom: 15, backgroundColor: '#f8fafc', color: '#0f172a' },
+  label: { fontSize: 13, fontWeight: 'bold', color: '#001b3a', marginBottom: 8 },
   textArea: { height: 100 },
   typeBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', backgroundColor: '#f8fafc' },
   typeBtnActive: { backgroundColor: 'rgba(0, 27, 58, 0.1)', borderColor: '#001b3a' },
