@@ -398,7 +398,7 @@ exports.register = async (req, res) => {
     res.status(201).json({ message: adminCreated ? 'Account registered and activated successfully!' : 'Account created! Please check your email for the OTP.' });
   } catch (error) {
     console.error('Registration Error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    res.status(500).json({ message: 'Server error during registration', error: error.message, stack: error.stack });
   }
 };
 
