@@ -17,6 +17,40 @@ const transporter = nodemailer.createTransport({
 // Utility to generate 4-digit OTP
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
+// Utility to normalize and standardize department names
+const normalizeDepartment = (dept) => {
+  if (!dept) return null;
+  let d = dept.trim().toUpperCase();
+  
+  // Strip starting "BS " or "BS" prefix
+  d = d.replace(/^(BS\s+|BS)/i, '').trim();
+  
+  // Standardize name variants
+  if (d === 'CS' || d === 'COMP SCIENCE' || d === 'COMPUTERSCIENCE' || d === 'COMPUTER SCIENCE' || d === 'COMPUTER_SCIENCE') {
+    return 'COMPUTER SCIENCE';
+  }
+  if (d === 'ENG' || d === 'ENGLISH') {
+    return 'ENGLISH';
+  }
+  if (d === 'ECO' || d === 'ECONOMICS') {
+    return 'ECONOMICS';
+  }
+  if (d === 'MATH' || d === 'MATHEMATICS' || d === 'MATHS') {
+    return 'MATHEMATICS';
+  }
+  if (d === 'POL SCI' || d === 'POLITICAL SCIENCE' || d === 'POL SCI.' || d === 'POLITICAL_SCIENCE' || d === 'POLSCI') {
+    return 'POLITICAL SCIENCE';
+  }
+  if (d === 'ZOO' || d === 'ZOOLOGY') {
+    return 'ZOOLOGY';
+  }
+  if (d === 'URDU') {
+    return 'URDU';
+  }
+  
+  return d;
+};
+
 // Email helper for sending approval request emails to teachers/admins
 const sendApprovalEmail = async (recipientEmail, recipientName, applicant, approveLink, rejectLink) => {
   const isStudent = applicant.role === 'student';
@@ -301,16 +335,7 @@ exports.register = async (req, res) => {
     const otp = adminCreated ? undefined : generateOTP();
     const otpExpires = adminCreated ? undefined : Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    let normalizedDept = department ? department.trim().toUpperCase() : null;
-    if (normalizedDept) {
-      if (normalizedDept === 'CS' || normalizedDept === 'COMP SCIENCE' || normalizedDept === 'COMPUTERSCIENCE') {
-        normalizedDept = 'COMPUTER SCIENCE';
-      } else if (normalizedDept === 'ENG') {
-        normalizedDept = 'ENGLISH';
-      } else if (normalizedDept === 'ECO') {
-        normalizedDept = 'ECONOMICS';
-      }
-    }
+    let normalizedDept = normalizeDepartment(department);
 
     let normalizedSem = semester ? semester.toString().trim() : null;
     if (normalizedSem) {
@@ -629,16 +654,7 @@ exports.updateUser = async (req, res) => {
     user.isApproved = true;
     user.status = 'ACTIVE';
     user.role = role ? role : user.role;
-    let normalizedDept = department ? department.trim().toUpperCase() : user.department;
-    if (normalizedDept) {
-      if (normalizedDept === 'CS' || normalizedDept === 'COMP SCIENCE' || normalizedDept === 'COMPUTERSCIENCE') {
-        normalizedDept = 'COMPUTER SCIENCE';
-      } else if (normalizedDept === 'ENG') {
-        normalizedDept = 'ENGLISH';
-      } else if (normalizedDept === 'ECO') {
-        normalizedDept = 'ECONOMICS';
-      }
-    }
+    let normalizedDept = department ? normalizeDepartment(department) : user.department;
     user.department = normalizedDept;
     user.semester = semester ? semester.trim() : user.semester;
     
