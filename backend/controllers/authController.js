@@ -341,24 +341,20 @@ exports.register = async (req, res) => {
 
     if (!adminCreated) {
       // Send OTP Email for self-registration
-      await transporter.sendMail({
+      transporter.sendMail({
         from: `"Department Management System" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Verify your DMS Account',
         html: `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-      });
+      }).catch(err => console.error('Failed to send verification OTP email:', err));
     } else {
       // Send Welcome Email for admin-created users
-      try {
-        await transporter.sendMail({
-          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-          to: email,
-          subject: 'Your DMS Account is Registered',
-          html: `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`,
-        });
-      } catch (err) {
-        console.log('Welcome email sending skipped/failed.');
-      }
+      transporter.sendMail({
+        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your DMS Account is Registered',
+        html: `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`,
+      }).catch(err => console.error('Welcome email sending failed:', err));
     }
 
     res.status(201).json({ message: adminCreated ? 'Account registered and activated successfully!' : 'Account created! Please check your email for the OTP.' });
@@ -414,19 +410,13 @@ exports.verifyOTP = async (req, res) => {
         // Email Admins
         const admins = await User.find({ role: 'admin' });
         for (const admin of admins) {
-          try {
-            await sendApprovalEmail(admin.email, admin.name, user, approveLink, rejectLink);
-          } catch (mailErr) {
-            console.error(`Failed to send teacher approval email to admin ${admin.email}:`, mailErr);
-          }
+          sendApprovalEmail(admin.email, admin.name, user, approveLink, rejectLink)
+            .catch(mailErr => console.error(`Failed to send teacher approval email to admin ${admin.email}:`, mailErr));
         }
         // Fallback email to env user if no admins found
         if (admins.length === 0 && process.env.EMAIL_USER) {
-          try {
-            await sendApprovalEmail(process.env.EMAIL_USER, 'Admin', user, approveLink, rejectLink);
-          } catch (mailErr) {
-            console.error(`Failed to send teacher approval email to fallback admin:`, mailErr);
-          }
+          sendApprovalEmail(process.env.EMAIL_USER, 'Admin', user, approveLink, rejectLink)
+            .catch(mailErr => console.error(`Failed to send teacher approval email to fallback admin:`, mailErr));
         }
       } catch (err) {
         console.error('Failed to process admin notification for teacher approval:', err);
@@ -436,20 +426,17 @@ exports.verifyOTP = async (req, res) => {
         // App Notification and Email to teachers of department
         const teachers = await User.find({ role: 'teacher', department: new RegExp('^' + user.department + '$', 'i') });
         for (const teacher of teachers) {
-          await new Notification({
+          new Notification({
             userId: teacher._id.toString(),
             role: 'teacher',
             title: 'Student Approval Request',
             message: `Student ${user.name} verified their account and is pending your approval.`,
             type: 'request',
             targetScreen: '/(teacher)/student_approval'
-          }).save();
+          }).save().catch(err => console.error('Notification save error:', err));
 
-          try {
-            await sendApprovalEmail(teacher.email, teacher.name, user, approveLink, rejectLink);
-          } catch (mailErr) {
-            console.error(`Failed to send student approval email to teacher ${teacher.email}:`, mailErr);
-          }
+          sendApprovalEmail(teacher.email, teacher.name, user, approveLink, rejectLink)
+            .catch(mailErr => console.error(`Failed to send student approval email to teacher ${teacher.email}:`, mailErr));
         }
       } catch (err) {
         console.error('Failed to process teacher notification for student approval:', err);
@@ -543,12 +530,12 @@ exports.forgotPassword = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    await transporter.sendMail({
+    transporter.sendMail({
       from: `"Department Management System" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Reset your DMS Password',
       html: `<h3>Password Reset</h3><p>Your 4-digit OTP to reset your password is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-    });
+    }).catch(err => console.error('Failed to send reset password OTP email:', err));
 
     res.status(200).json({ message: 'OTP sent to your email for password reset.' });
   } catch (error) {
@@ -851,20 +838,16 @@ exports.approveRequest = async (req, res) => {
         console.error('Failed to notify approved user in app:', err);
       }
 
-      try {
-        await transporter.sendMail({
-          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-          to: user.email,
-          subject: 'DMS Account Approved',
-          html: `
-            <h3>Congratulations, ${user.name}!</h3>
-            <p>Your registration request has been approved.</p>
-            <p>You can now open the DMS app and log in to access your dashboard.</p>
-          `,
-        });
-      } catch (err) {
-        console.error('Failed to send approval confirmation email:', err);
-      }
+      transporter.sendMail({
+        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: 'DMS Account Approved',
+        html: `
+          <h3>Congratulations, ${user.name}!</h3>
+          <p>Your registration request has been approved.</p>
+          <p>You can now open the DMS app and log in to access your dashboard.</p>
+        `,
+      }).catch(err => console.error('Failed to send approval confirmation email:', err));
 
       return res.status(200).send(renderResponsePage(true, `Successfully approved <strong>${user.name}</strong> (${user.role})! They can now log in.`, user));
     } else if (action === 'reject') {
@@ -874,20 +857,16 @@ exports.approveRequest = async (req, res) => {
 
       await User.deleteOne({ _id: user._id });
 
-      try {
-        await transporter.sendMail({
-          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-          to: userEmail,
-          subject: 'DMS Registration Request Rejected',
-          html: `
-            <h3>Hello, ${userName}.</h3>
-            <p>Your registration request for the Department Management System was rejected.</p>
-            <p>You can try registering again with correct details if needed.</p>
-          `,
-        });
-      } catch (err) {
-        console.error('Failed to send rejection email:', err);
-      }
+      transporter.sendMail({
+        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+        to: userEmail,
+        subject: 'DMS Registration Request Rejected',
+        html: `
+          <h3>Hello, ${userName}.</h3>
+          <p>Your registration request for the Department Management System was rejected.</p>
+          <p>You can try registering again with correct details if needed.</p>
+        `,
+      }).catch(err => console.error('Failed to send rejection email:', err));
 
       return res.status(200).send(renderResponsePage(true, `Successfully rejected and deleted registration request for <strong>${userName}</strong> (${userRole}).`, { name: userName, email: userEmail, role: userRole }, false, true));
     }
