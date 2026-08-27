@@ -371,20 +371,28 @@ exports.register = async (req, res) => {
 
     if (!adminCreated) {
       // Send OTP Email for self-registration
-      transporter.sendMail({
-        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Verify your DMS Account',
-        html: `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-      }).catch(err => console.error('Failed to send verification OTP email:', err));
+      try {
+        transporter.sendMail({
+          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: 'Verify your DMS Account',
+          html: `<h3>Welcome to DMS!</h3><p>Your 4-digit OTP for account verification is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
+        }).catch(err => console.error('Failed to send verification OTP email:', err));
+      } catch (mailErr) {
+        console.error('Synchronous verification email error caught:', mailErr);
+      }
     } else {
       // Send Welcome Email for admin-created users
-      transporter.sendMail({
-        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Your DMS Account is Registered',
-        html: `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`,
-      }).catch(err => console.error('Welcome email sending failed:', err));
+      try {
+        transporter.sendMail({
+          from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: 'Your DMS Account is Registered',
+          html: `<h3>Welcome to DMS, ${name}!</h3><p>An administrator has created your account. You can now log in to the DMS App using your email and password.</p>`,
+        }).catch(err => console.error('Welcome email sending failed:', err));
+      } catch (mailErr) {
+        console.error('Synchronous welcome email error caught:', mailErr);
+      }
     }
 
     res.status(201).json({ message: adminCreated ? 'Account registered and activated successfully!' : 'Account created! Please check your email for the OTP.' });
@@ -560,12 +568,16 @@ exports.forgotPassword = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    transporter.sendMail({
-      from: `"Department Management System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Reset your DMS Password',
-      html: `<h3>Password Reset</h3><p>Your 4-digit OTP to reset your password is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
-    }).catch(err => console.error('Failed to send reset password OTP email:', err));
+    try {
+      transporter.sendMail({
+        from: `"Department Management System" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Reset your DMS Password',
+        html: `<h3>Password Reset</h3><p>Your 4-digit OTP to reset your password is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`,
+      }).catch(err => console.error('Failed to send reset password OTP email:', err));
+    } catch (mailErr) {
+      console.error('Synchronous reset password email error caught:', mailErr);
+    }
 
     res.status(200).json({ message: 'OTP sent to your email for password reset.' });
   } catch (error) {
