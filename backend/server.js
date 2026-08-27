@@ -50,20 +50,6 @@ app.get('/', (req, res) => {
   res.send('DMS Backend API is running!');
 });
 
-// Debug route to check live code
-app.get('/api/debug-code', (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const code = fs.readFileSync(path.join(__dirname, 'controllers/authController.js'), 'utf8');
-    const regIndex = code.indexOf('exports.register =');
-    if (regIndex === -1) return res.send('exports.register not found');
-    res.send(code.substring(regIndex, regIndex + 1500));
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
